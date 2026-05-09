@@ -16,7 +16,6 @@
         .class-header { background: #f8f8f8; padding: 8px 12px; font-size: 0.9em; font-weight: bold; display: flex; justify-content: space-between; }
         .group-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 10px; }
 
-        /* ボタン基本設定 */
         .group-btn {
             height: 48px; background: white; border-radius: 8px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -32,7 +31,6 @@
         .status-3 { background: #ff9500; color: white; border-color: #ff9500; }
         .status-4 { background: #34c759; color: white; border-color: #34c759; }
 
-        /* 同期・設定パネル */
         .panel { margin-top: 15px; padding: 15px; background: #e5e5ea; border-radius: 12px; font-size: 0.8em; }
         textarea { width: 100%; height: 60px; margin: 8px 0; border-radius: 5px; border: 1px solid #ccc; font-size: 0.7em; padding: 5px; }
         .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
@@ -40,8 +38,6 @@
         .btn-export { background: #5856d6; color: white; }
         .btn-import { background: #34c759; color: white; }
         .btn-update { background: var(--primary); color: white; width: 100%; margin-top: 10px; }
-        
-        /* 注釈用のスタイル */
         .help-text { font-size: 0.85em; color: #666; margin-top: 2px; margin-bottom: 10px; display: block; }
     </style>
 </head>
@@ -58,6 +54,7 @@
 <div id="app" class="container"></div>
 
 <div class="container">
+    <!-- 同期パネル（現場で使う方を上へ） -->
     <div class="panel">
         <h3>🔗 進捗を同期する</h3>
         <p>1. 自分の進捗を送る：【進捗をコピー】を押して相手に送信。<br>2. 相手の進捗を入れる：下の枠に貼り付けて【読み込む】。</p>
@@ -68,6 +65,7 @@
         </div>
     </div>
 
+    <!-- 設定パネル（間違えて触らないよう一番下へ） -->
     <div class="panel" style="background: #ddd;">
         <h3>🛠 基本設定</h3>
         <label>クラス数</label>
