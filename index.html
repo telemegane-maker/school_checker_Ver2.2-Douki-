@@ -35,13 +35,13 @@
         .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
         button { flex: 1; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
         
-        /* 表示タイプボタンの新デザイン */
+        /* 表示タイプボタンのデザイン */
         .btn-toggle { background: #fff; color: #333; border: 1px solid #ccc; font-size: 0.9em; }
         
-        /* 保存して現在「確定」している状態（黒） */
-        .btn-toggle.active { background: #333 !important; color: #fff !important; border: 1px solid #333 !important; box-shadow: none !important; transform: none !important; }
+        /* 確定状態：黒背景（優先度を上げるために!important） */
+        .btn-toggle.active { background: #333 !important; color: #fff !important; border: 1px solid #333 !important; }
         
-        /* タップして「選択中」だが未保存の状態（青枠） */
+        /* 選択中（タップした瞬間または未保存）：青い太枠。active状態でも上書き表示されるように設定 */
         .btn-toggle.pending { border: 3px solid var(--primary) !important; box-shadow: 0 0 8px rgba(0,122,255,0.4); transform: translateY(-2px); }
 
         .btn-export { background: #5856d6; color: white; }
@@ -104,7 +104,7 @@
     let state = { config: { classNum: 8, groupNum: 10, groupType: 'num', statusNames: "未,撮影済,要確認,不要" }, data: {}, peerData: {} };
 
     window.onload = () => {
-        const saved = localStorage.getItem('trip_photo_sync_v10');
+        const saved = localStorage.getItem('trip_photo_sync_v11');
         if (saved) {
             state = JSON.parse(saved);
             document.getElementById('classNum').value = state.config.classNum;
@@ -123,32 +123,31 @@
         updateToggleUI();
     }
 
-    // 見た目の制御を強化
     function updateToggleUI() {
         const btnNum = document.getElementById('typeNum');
         const btnAlpha = document.getElementById('typeAlpha');
         const currentType = state.config.groupType;
 
-        // 一旦リセット
-        [btnNum, btnAlpha].forEach(b => b.className = 'btn-toggle');
+        // 全てリセット
+        btnNum.className = 'btn-toggle';
+        btnAlpha.className = 'btn-toggle';
 
-        // 確定している方（active）
+        // 1. 確定している方に active（黒背景）を付与
         if (currentType === 'num') btnNum.classList.add('active');
         if (currentType === 'alpha') btnAlpha.classList.add('active');
 
-        // 選択中だが未確定の方（pending）
-        if (pendingGroupType !== currentType) {
-            if (pendingGroupType === 'num') btnNum.className = 'btn-toggle pending';
-            if (pendingGroupType === 'alpha') btnAlpha.className = 'btn-toggle pending';
-        }
+        // 2. 「現在選択されている（タップされた）」方に pending（青枠）を付与
+        // これにより、active なボタンをタップしても pending の青枠が重なって表示されます
+        if (pendingGroupType === 'num') btnNum.classList.add('pending');
+        if (pendingGroupType === 'alpha') btnAlpha.classList.add('pending');
     }
 
     function updateConfigOnly() {
         state.config.classNum = parseInt(document.getElementById('classNum').value);
         state.config.groupNum = parseInt(document.getElementById('groupNum').value);
         state.config.statusNames = document.getElementById('statusNames').value;
-        state.config.groupType = pendingGroupType; // 確定
-        updateToggleUI();
+        state.config.groupType = pendingGroupType; 
+        updateToggleUI(); // 保存時にpendingの青枠が消え、activeの黒背景だけになる
         renderGrid();
         save();
         alert("設定を保存しました。");
@@ -221,7 +220,7 @@
         } catch (e) { alert("エラー"); }
     }
 
-    function save() { localStorage.setItem('trip_photo_sync_v10', JSON.stringify(state)); }
+    function save() { localStorage.setItem('trip_photo_sync_v11', JSON.stringify(state)); }
 </script>
 </body>
 </html>
