@@ -15,25 +15,31 @@
         .class-section { background: var(--card-bg); border-radius: 10px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .class-header { background: #f8f8f8; padding: 8px 12px; font-size: 0.9em; font-weight: bold; display: flex; justify-content: space-between; }
         .group-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 10px; }
+
         .group-btn {
             height: 48px; background: white; border-radius: 8px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             border: 2px solid #d1d1d6; box-sizing: border-box; position: relative;
         }
+        /* メンバーが撮った場所は黄色い太枠 */
         .group-btn.synced { border: 3px solid var(--sync-color) !important; box-shadow: 0 0 5px rgba(255,204,0,0.5); }
         .group-btn .num { font-size: 1.1em; font-weight: bold; }
         .group-btn .label { font-size: 0.55em; margin-top: 2px; }
+
         .status-1 { background: #007aff; color: white; border-color: #007aff; }
         .status-2 { background: #ff3b30; color: white; border-color: #ff3b30; }
         .status-3 { background: #ff9500; color: white; border-color: #ff9500; }
         .status-4 { background: #34c759; color: white; border-color: #34c759; }
+
         .panel { margin-top: 15px; padding: 15px; background: #e5e5ea; border-radius: 12px; font-size: 0.8em; }
         textarea { width: 100%; height: 60px; margin: 8px 0; border-radius: 5px; border: 1px solid #ccc; font-size: 0.7em; padding: 5px; box-sizing: border-box; }
         .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
         button { flex: 1; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        
         .btn-toggle { background: #fff; color: #333; border: 1px solid #ccc; font-size: 0.9em; }
         .btn-toggle.active { background: #333 !important; color: #fff !important; border: 1px solid #333 !important; }
         .btn-toggle.pending { border: 3px solid var(--primary) !important; box-shadow: 0 0 8px rgba(0,122,255,0.4); transform: translateY(-2px); }
+
         .btn-export { background: #5856d6; color: white; }
         .btn-import { background: #34c759; color: white; }
         .btn-save { background: var(--primary); color: white; flex: 2; }
@@ -42,6 +48,7 @@
     </style>
 </head>
 <body>
+
 <div class="header">
     <div class="filter-bar">
         <span>📸 班チェック Sync-Lite</span>
@@ -49,40 +56,54 @@
     </div>
     <div class="progress-container"><div id="progressBar" class="progress-bar"></div></div>
 </div>
+
 <div id="app" class="container"></div>
+
 <div class="container">
     <div class="panel" style="background: #ddd;">
         <h3>🛠 基本設定</h3>
-        <label>クラス数</label><input type="number" id="classNum" value="8" style="width:100%; padding:8px; margin-bottom:12px; box-sizing: border-box;">
-        <label>班数</label><input type="number" id="groupNum" value="10" style="width:100%; padding:8px; margin-bottom:12px; box-sizing: border-box;">
+        <label>クラス数</label>
+        <input type="number" id="classNum" value="8" style="width:100%; padding:8px; margin-bottom:12px; box-sizing: border-box;">
+        
+        <label>班数</label>
+        <input type="number" id="groupNum" value="10" style="width:100%; padding:8px; margin-bottom:12px; box-sizing: border-box;">
+        
         <label>表示タイプ</label>
         <div class="btn-row">
             <button id="typeNum" class="btn-toggle" onclick="setType('num')">1, 2, 3...</button>
             <button id="typeAlpha" class="btn-toggle" onclick="setType('alpha')">A, B, C...</button>
         </div>
+
         <label>色順序（ボタン名）</label>
         <input type="text" id="statusNames" value="未,撮影済,要確認,不要" style="width:100%; padding:8px; box-sizing: border-box;">
         <small class="help-text">※各名前を「,」で区切ってください</small>
+        
         <div class="btn-row">
             <button class="btn-save" onclick="updateConfigOnly()">設定を保存(維持)</button>
             <button class="btn-reset" onclick="resetAllData()">全リセット</button>
         </div>
     </div>
+
     <div class="panel">
         <h3>🔗 進捗を同期（合算）する</h3>
-        <p>相方のデータを取り込むと、全員の進捗が積み重なって合体します。</p>
-        <textarea id="syncData" placeholder="届いたデータを貼り付け"></textarea>
+        <p>1. 自分の進捗を送る：【進捗をコピー】を押してメンバーに送信。<br>2. 全員の進捗を合体：届いた文字を下に貼り付けて【読み込む】。</p>
+        <small class="help-text">※黄色い枠が、自分以外のメンバーによる撮影分です。</small>
+        
+        <textarea id="syncData" placeholder="ここに届いたデータを貼り付け"></textarea>
+        
         <div class="btn-row">
-            <button class="btn-export" onclick="exportData()">自分の進捗をコピー</button>
-            <button class="btn-import" onclick="importData()">進捗を合体させる</button>
+            <button class="btn-export" onclick="exportData()">進捗をコピー</button>
+            <button class="btn-import" onclick="importData()">読み込む</button>
         </div>
     </div>
 </div>
+
 <script>
     let pendingGroupType = 'num';
     let state = { config: { classNum: 8, groupNum: 10, groupType: 'num', statusNames: "未,撮影済,要確認,不要" }, data: {}, peerData: {} };
+
     window.onload = () => {
-        const saved = localStorage.getItem('trip_photo_sync_vFinal_Sync');
+        const saved = localStorage.getItem('trip_photo_sync_vFinal_v2');
         if (saved) {
             state = JSON.parse(saved);
             document.getElementById('classNum').value = state.config.classNum;
@@ -91,9 +112,16 @@
             pendingGroupType = state.config.groupType || 'num';
             updateToggleUI();
             renderGrid();
-        } else { updateToggleUI(); }
+        } else {
+            updateToggleUI();
+        }
     };
-    function setType(type) { pendingGroupType = type; updateToggleUI(); }
+
+    function setType(type) {
+        pendingGroupType = type;
+        updateToggleUI();
+    }
+
     function updateToggleUI() {
         const btnNum = document.getElementById('typeNum');
         const btnAlpha = document.getElementById('typeAlpha');
@@ -104,17 +132,25 @@
         if (pendingGroupType === 'num') btnNum.classList.add('pending');
         if (pendingGroupType === 'alpha') btnAlpha.classList.add('pending');
     }
+
     function updateConfigOnly() {
         state.config.classNum = parseInt(document.getElementById('classNum').value);
         state.config.groupNum = parseInt(document.getElementById('groupNum').value);
         state.config.statusNames = document.getElementById('statusNames').value;
         state.config.groupType = pendingGroupType; 
-        updateToggleUI(); renderGrid(); save(); alert("設定を保存しました。");
+        updateToggleUI();
+        renderGrid();
+        save();
+        alert("設定を保存しました。");
     }
+
     function resetAllData() {
-        if(!confirm("全チェックをリセットしますか？")) return;
-        state.data = {}; state.peerData = {}; updateConfigOnly();
+        if(!confirm("チェック内容をすべて削除しますか？")) return;
+        state.data = {};
+        state.peerData = {};
+        updateConfigOnly();
     }
+
     function renderGrid() {
         const container = document.getElementById('app');
         const filterOn = document.getElementById('filterUnshot').checked;
@@ -122,6 +158,7 @@
         container.innerHTML = '';
         let total = state.config.classNum * state.config.groupNum;
         let completedCount = 0;
+
         for (let c = 1; c <= state.config.classNum; c++) {
             const section = document.createElement('div');
             section.className = 'class-section';
@@ -129,44 +166,65 @@
             const grid = document.createElement('div');
             grid.className = 'group-grid';
             let visibleInClass = 0;
+
             for (let g = 1; g <= state.config.groupNum; g++) {
                 const id = `c${c}g${g}`;
                 const myStatus = state.data[id] || 0;
                 const peerStatus = state.peerData[id] || 0;
+
                 if (myStatus > 0 || peerStatus > 0) completedCount++;
                 if (filterOn && (myStatus > 0 || peerStatus > 0)) continue;
+
                 visibleInClass++;
                 let gLabel = (state.config.groupType === 'alpha') ? String.fromCharCode(64 + g) : g;
+                
                 const btn = document.createElement('div');
                 btn.className = `group-btn status-${myStatus} ${peerStatus > 0 ? 'synced' : ''}`;
                 btn.innerHTML = `<div class="num">${gLabel}</div><div class="label">${statusList[myStatus] || ''}</div>`;
                 btn.onclick = () => toggleStatus(id, statusList.length);
                 grid.appendChild(btn);
             }
-            if (visibleInClass > 0 || !filterOn) { section.appendChild(grid); container.appendChild(section); }
+
+            if (visibleInClass > 0 || !filterOn) {
+                section.appendChild(grid);
+                container.appendChild(section);
+            }
         }
         document.getElementById('progressBar').style.width = (completedCount / total * 100) + '%';
     }
-    function toggleStatus(id, max) { state.data[id] = ((state.data[id] || 0) + 1) % max; renderGrid(); save(); }
+
+    function toggleStatus(id, max) {
+        state.data[id] = ((state.data[id] || 0) + 1) % max;
+        renderGrid();
+        save();
+    }
+
     function exportData() {
         const dataStr = btoa(JSON.stringify(state.data));
-        navigator.clipboard.writeText(dataStr).then(() => alert("自分の進捗をコピーしました！"));
+        navigator.clipboard.writeText(dataStr).then(() => alert("自分の進捗をコピーしました。メンバーに送ってください。"));
     }
+
     function importData() {
         const input = document.getElementById('syncData').value.trim();
         if (!input) return;
         try {
             const receivedData = JSON.parse(atob(input));
+            // 複数人マージロジック
             for (let id in receivedData) {
                 const currentVal = state.peerData[id] || 0;
                 const newVal = receivedData[id] || 0;
-                if (newVal > currentVal) { state.peerData[id] = newVal; }
+                if (newVal > currentVal) {
+                    state.peerData[id] = newVal;
+                }
             }
-            renderGrid(); save(); alert("全員の進捗を合体させました！");
+            renderGrid();
+            save();
+            alert("進捗を合体させました。");
             document.getElementById('syncData').value = "";
-        } catch (e) { alert("データエラー"); }
+        } catch (e) { alert("データの形式が正しくありません。"); }
     }
-    function save() { localStorage.setItem('trip_photo_sync_vFinal_Sync', JSON.stringify(state)); }
+
+    function save() { localStorage.setItem('trip_photo_sync_vFinal_v2', JSON.stringify(state)); }
 </script>
 </body>
 </html>
