@@ -21,6 +21,7 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             border: 2px solid #d1d1d6; box-sizing: border-box; position: relative;
         }
+        /* 相方が撮った場所は黄色い太枠 */
         .group-btn.synced { border: 3px solid var(--sync-color) !important; box-shadow: 0 0 5px rgba(255,204,0,0.5); }
         .group-btn .num { font-size: 1.1em; font-weight: bold; }
         .group-btn .label { font-size: 0.55em; margin-top: 2px; }
@@ -35,13 +36,8 @@
         .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
         button { flex: 1; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
         
-        /* 表示タイプボタンのデザイン */
         .btn-toggle { background: #fff; color: #333; border: 1px solid #ccc; font-size: 0.9em; }
-        
-        /* 確定状態：黒背景（優先度を上げるために!important） */
         .btn-toggle.active { background: #333 !important; color: #fff !important; border: 1px solid #333 !important; }
-        
-        /* 選択中（タップした瞬間または未保存）：青い太枠。active状態でも上書き表示されるように設定 */
         .btn-toggle.pending { border: 3px solid var(--primary) !important; box-shadow: 0 0 8px rgba(0,122,255,0.4); transform: translateY(-2px); }
 
         .btn-export { background: #5856d6; color: white; }
@@ -89,12 +85,12 @@
     </div>
 
     <div class="panel">
-        <h3>🔗 進捗を同期する</h3>
-        <p>1. 自分の進捗を送る：【進捗をコピー】を押して相手に送信。<br>2. 相手の進捗を入れる：下の枠に貼り付けて【読み込む】。</p>
-        <textarea id="syncData" placeholder="ここにデータを貼り付け"></textarea>
+        <h3>🔗 進捗を同期（合算）する</h3>
+        <p>相方のデータを取り込むと、自分と相手の進捗が合体します。※黄色い枠が相方の撮影分です。</p>
+        <textarea id="syncData" placeholder="相手から届いた文字を貼り付け"></textarea>
         <div class="btn-row">
-            <button class="btn-export" onclick="exportData()">進捗をコピー</button>
-            <button class="btn-import" onclick="importData()">読み込む</button>
+            <button class="btn-export" onclick="exportData()">自分の進捗をコピー</button>
+            <button class="btn-import" onclick="importData()">相方の進捗を合体</button>
         </div>
     </div>
 </div>
@@ -104,7 +100,7 @@
     let state = { config: { classNum: 8, groupNum: 10, groupType: 'num', statusNames: "未,撮影済,要確認,不要" }, data: {}, peerData: {} };
 
     window.onload = () => {
-        const saved = localStorage.getItem('trip_photo_sync_v11');
+        const saved = localStorage.getItem('trip_photo_sync_vFinal');
         if (saved) {
             state = JSON.parse(saved);
             document.getElementById('classNum').value = state.config.classNum;
@@ -127,17 +123,9 @@
         const btnNum = document.getElementById('typeNum');
         const btnAlpha = document.getElementById('typeAlpha');
         const currentType = state.config.groupType;
-
-        // 全てリセット
-        btnNum.className = 'btn-toggle';
-        btnAlpha.className = 'btn-toggle';
-
-        // 1. 確定している方に active（黒背景）を付与
+        btnNum.className = btnAlpha.className = 'btn-toggle';
         if (currentType === 'num') btnNum.classList.add('active');
         if (currentType === 'alpha') btnAlpha.classList.add('active');
-
-        // 2. 「現在選択されている（タップされた）」方に pending（青枠）を付与
-        // これにより、active なボタンをタップしても pending の青枠が重なって表示されます
         if (pendingGroupType === 'num') btnNum.classList.add('pending');
         if (pendingGroupType === 'alpha') btnAlpha.classList.add('pending');
     }
@@ -147,7 +135,7 @@
         state.config.groupNum = parseInt(document.getElementById('groupNum').value);
         state.config.statusNames = document.getElementById('statusNames').value;
         state.config.groupType = pendingGroupType; 
-        updateToggleUI(); // 保存時にpendingの青枠が消え、activeの黒背景だけになる
+        updateToggleUI();
         renderGrid();
         save();
         alert("設定を保存しました。");
@@ -166,7 +154,7 @@
         const statusList = state.config.statusNames.split(',');
         container.innerHTML = '';
         let total = state.config.classNum * state.config.groupNum;
-        let completed = 0;
+        let completedCount = 0;
 
         for (let c = 1; c <= state.config.classNum; c++) {
             const section = document.createElement('div');
@@ -175,26 +163,35 @@
             const grid = document.createElement('div');
             grid.className = 'group-grid';
             let visibleInClass = 0;
+
             for (let g = 1; g <= state.config.groupNum; g++) {
                 const id = `c${c}g${g}`;
                 const myStatus = state.data[id] || 0;
                 const peerStatus = state.peerData[id] || 0;
-                if (myStatus > 0 || peerStatus > 0) completed++;
+
+                // どちらかが撮っていれば完了とみなす（進捗バー用）
+                if (myStatus > 0 || peerStatus > 0) completedCount++;
+
+                // 未撮影フィルタ
                 if (filterOn && (myStatus > 0 || peerStatus > 0)) continue;
+
                 visibleInClass++;
                 let gLabel = (state.config.groupType === 'alpha') ? String.fromCharCode(64 + g) : g;
+                
                 const btn = document.createElement('div');
+                // peerStatus（相手のデータ）がある場合は synced クラスを付与
                 btn.className = `group-btn status-${myStatus} ${peerStatus > 0 ? 'synced' : ''}`;
                 btn.innerHTML = `<div class="num">${gLabel}</div><div class="label">${statusList[myStatus] || ''}</div>`;
                 btn.onclick = () => toggleStatus(id, statusList.length);
                 grid.appendChild(btn);
             }
+
             if (visibleInClass > 0 || !filterOn) {
                 section.appendChild(grid);
                 container.appendChild(section);
             }
         }
-        document.getElementById('progressBar').style.width = (completed / total * 100) + '%';
+        document.getElementById('progressBar').style.width = (completedCount / total * 100) + '%';
     }
 
     function toggleStatus(id, max) {
@@ -204,23 +201,30 @@
     }
 
     function exportData() {
+        // 合算ロジック：自分が送るデータは「自分の最新」
         const dataStr = btoa(JSON.stringify(state.data));
-        navigator.clipboard.writeText(dataStr).then(() => alert("進捗データをコピーしました！"));
+        navigator.clipboard.writeText(dataStr).then(() => alert("自分の進捗をコピーしました！これを相方に送ってください。"));
     }
 
     function importData() {
         const input = document.getElementById('syncData').value.trim();
         if (!input) return;
         try {
-            state.peerData = JSON.parse(atob(input));
+            const receivedData = JSON.parse(atob(input));
+            
+            // 【合算ロジック】
+            // 相手が撮ったデータ（peerData）として保存。
+            // もし相手が「未撮影(0)」にした場所があっても、自分が撮っていれば自分のデータは消えません。
+            state.peerData = receivedData; 
+            
             renderGrid();
             save();
-            alert("相方の進捗を読み込みました！");
+            alert("相方の進捗と合体しました！黄色い枠が相手の撮影分です。");
             document.getElementById('syncData').value = "";
-        } catch (e) { alert("エラー"); }
+        } catch (e) { alert("データの形式が正しくありません。"); }
     }
 
-    function save() { localStorage.setItem('trip_photo_sync_v11', JSON.stringify(state)); }
+    function save() { localStorage.setItem('trip_photo_sync_vFinal', JSON.stringify(state)); }
 </script>
 </body>
 </html>
