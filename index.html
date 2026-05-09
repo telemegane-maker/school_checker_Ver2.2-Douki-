@@ -21,9 +21,7 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             border: 2px solid #d1d1d6; box-sizing: border-box; position: relative;
         }
-        /* 同期された枠線の強調 */
         .group-btn.synced { border: 3px solid var(--sync-color) !important; box-shadow: 0 0 5px rgba(255,204,0,0.5); }
-        
         .group-btn .num { font-size: 1.1em; font-weight: bold; }
         .group-btn .label { font-size: 0.55em; margin-top: 2px; }
 
@@ -36,6 +34,11 @@
         textarea { width: 100%; height: 60px; margin: 8px 0; border-radius: 5px; border: 1px solid #ccc; font-size: 0.7em; padding: 5px; }
         .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
         button { flex: 1; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+        
+        /* 選択ボタンのスタイル */
+        .btn-toggle { background: #fff; color: #333; border: 1px solid #ccc; font-size: 0.9em; }
+        .btn-toggle.active { background: #333; color: #fff; border-color: #333; }
+
         .btn-export { background: #5856d6; color: white; }
         .btn-import { background: #34c759; color: white; }
         .btn-update { background: var(--primary); color: white; width: 100%; margin-top: 10px; }
@@ -55,23 +58,27 @@
 <div id="app" class="container"></div>
 
 <div class="container">
-    <!-- 🛠 基本設定（一人で使う時でも調整する可能性があるので上に配置） -->
     <div class="panel" style="background: #ddd;">
         <h3>🛠 基本設定</h3>
         <label>クラス数</label>
-        <input type="number" id="classNum" value="8" style="width:100%; padding:8px; margin-bottom:12px;">
+        <input type="number" id="classNum" value="8" style="width:100%; padding:8px; margin-bottom:12px; box-sizing: border-box;">
         
         <label>班数</label>
-        <input type="number" id="groupNum" value="10" style="width:100%; padding:8px; margin-bottom:12px;">
+        <input type="number" id="groupNum" value="10" style="width:100%; padding:8px; margin-bottom:12px; box-sizing: border-box;">
         
+        <label>表示タイプ</label>
+        <div class="btn-row">
+            <button id="typeNum" class="btn-toggle active" onclick="setType('num')">1, 2, 3...</button>
+            <button id="typeAlpha" class="btn-toggle" onclick="setType('alpha')">A, B, C...</button>
+        </div>
+
         <label>色順序（ボタン名）</label>
-        <input type="text" id="statusNames" value="未,カメA,カメB,カメC,完了" style="width:100%; padding:8px;" placeholder="例：未,担当A,担当B,済">
-        <small class="help-text">※各名前を「,」（半角カンマ）で区切ってください</small>
+        <input type="text" id="statusNames" value="未,カメA,カメB,カメC,完了" style="width:100%; padding:8px; box-sizing: border-box;" placeholder="例：未,担当A,担当B,済">
+        <small class="help-text">※各名前を「,」で区切ってください</small>
         
         <button class="btn-update" onclick="setupGrid()">設定を保存・リセット</button>
     </div>
 
-    <!-- 🔗 進捗を同期する（複数人時のみ使うので一番下へ） -->
     <div class="panel">
         <h3>🔗 進捗を同期する</h3>
         <p>1. 自分の進捗を送る：【進捗をコピー】を押して相手に送信。<br>2. 相手の進捗を入れる：下の枠に貼り付けて【読み込む】。</p>
@@ -84,19 +91,25 @@
 </div>
 
 <script>
-    let state = { config: { classNum: 8, groupNum: 10, statusNames: "未,カメA,カメB,カメC,完了" }, data: {}, peerData: {} };
+    let state = { config: { classNum: 8, groupNum: 10, groupType: 'num', statusNames: "未,カメA,カメB,カメC,完了" }, data: {}, peerData: {} };
 
     window.onload = () => {
-        const saved = localStorage.getItem('trip_photo_sync');
+        const saved = localStorage.getItem('trip_photo_sync_v5');
         if (saved) {
             state = JSON.parse(saved);
-            if (!state.peerData) state.peerData = {};
             document.getElementById('classNum').value = state.config.classNum;
             document.getElementById('groupNum').value = state.config.groupNum;
             document.getElementById('statusNames').value = state.config.statusNames;
+            setType(state.config.groupType || 'num', false);
             renderGrid();
         }
     };
+
+    function setType(type, shouldRender = true) {
+        state.config.groupType = type;
+        document.getElementById('typeNum').classList.toggle('active', type === 'num');
+        document.getElementById('typeAlpha').classList.toggle('active', type === 'alpha');
+    }
 
     function setupGrid() {
         if(!confirm("設定を変更し、全チェックをリセットしますか？")) return;
@@ -135,9 +148,15 @@
                 if (filterOn && (myStatus > 0 || peerStatus > 0)) continue;
 
                 visibleInClass++;
+                
+                // 表示ラベルの生成
+                let gLabel = (state.config.groupType === 'alpha') 
+                             ? String.fromCharCode(64 + g) 
+                             : g;
+
                 const btn = document.createElement('div');
                 btn.className = `group-btn status-${myStatus} ${peerStatus > 0 ? 'synced' : ''}`;
-                btn.innerHTML = `<div class="num">${g}</div><div class="label">${statusList[myStatus] || ''}</div>`;
+                btn.innerHTML = `<div class="num">${gLabel}</div><div class="label">${statusList[myStatus] || ''}</div>`;
                 btn.onclick = () => toggleStatus(id, statusList.length);
                 grid.appendChild(btn);
             }
@@ -158,30 +177,22 @@
 
     function exportData() {
         const dataStr = btoa(JSON.stringify(state.data));
-        navigator.clipboard.writeText(dataStr).then(() => {
-            alert("進捗データをコピーしました！");
-        });
+        navigator.clipboard.writeText(dataStr).then(() => alert("進捗データをコピーしました！"));
     }
 
     function importData() {
         const input = document.getElementById('syncData').value.trim();
         if (!input) return;
         try {
-            const decoded = JSON.parse(atob(input));
-            state.peerData = decoded;
+            state.peerData = JSON.parse(atob(input));
             renderGrid();
             save();
             alert("相方の進捗を読み込みました！");
             document.getElementById('syncData').value = "";
-        } catch (e) {
-            alert("エラー：正しくコピーできていないようです。");
-        }
+        } catch (e) { alert("データエラーです"); }
     }
 
-    function save() {
-        localStorage.setItem('trip_photo_sync', JSON.stringify(state));
-    }
+    function save() { localStorage.setItem('trip_photo_sync_v5', JSON.stringify(state)); }
 </script>
-
 </body>
 </html>
