@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>班チェック Sync-Lite</title>
     <style>
-        :root { --bg-color: #f2f2f7; --card-bg: #ffffff; --primary: #007aff; --sync-color: #ffcc00; }
+        :root { --bg-color: #f2f2f7; --card-bg: #ffffff; --primary: #007aff; --sync-color: #ffcc00; --danger: #ff3b30; }
         body { font-family: -apple-system, sans-serif; background: var(--bg-color); margin: 0; padding-bottom: 120px; -webkit-user-select: none; }
         .header { position: sticky; top: 0; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); padding: 8px 12px; border-bottom: 1px solid #d1d1d6; z-index: 100; }
         .progress-container { background: #e5e5ea; border-radius: 3px; height: 4px; margin: 5px 0; }
@@ -31,17 +31,23 @@
         .status-4 { background: #34c759; color: white; border-color: #34c759; }
 
         .panel { margin-top: 15px; padding: 15px; background: #e5e5ea; border-radius: 12px; font-size: 0.8em; }
-        textarea { width: 100%; height: 60px; margin: 8px 0; border-radius: 5px; border: 1px solid #ccc; font-size: 0.7em; padding: 5px; }
+        textarea { width: 100%; height: 60px; margin: 8px 0; border-radius: 5px; border: 1px solid #ccc; font-size: 0.7em; padding: 5px; box-sizing: border-box; }
         .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
-        button { flex: 1; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+        button { flex: 1; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
         
-        /* 選択ボタンのスタイル */
+        /* 表示タイプボタンの新デザイン */
         .btn-toggle { background: #fff; color: #333; border: 1px solid #ccc; font-size: 0.9em; }
-        .btn-toggle.active { background: #333; color: #fff; border-color: #333; }
+        
+        /* 保存して現在「確定」している状態（黒） */
+        .btn-toggle.active { background: #333 !important; color: #fff !important; border: 1px solid #333 !important; box-shadow: none !important; transform: none !important; }
+        
+        /* タップして「選択中」だが未保存の状態（青枠） */
+        .btn-toggle.pending { border: 3px solid var(--primary) !important; box-shadow: 0 0 8px rgba(0,122,255,0.4); transform: translateY(-2px); }
 
         .btn-export { background: #5856d6; color: white; }
         .btn-import { background: #34c759; color: white; }
-        .btn-update { background: var(--primary); color: white; width: 100%; margin-top: 10px; }
+        .btn-save { background: var(--primary); color: white; flex: 2; }
+        .btn-reset { background: var(--danger); color: white; flex: 1; font-size: 0.85em; }
         .help-text { font-size: 0.85em; color: #666; margin-top: 2px; margin-bottom: 10px; display: block; }
     </style>
 </head>
@@ -68,15 +74,18 @@
         
         <label>表示タイプ</label>
         <div class="btn-row">
-            <button id="typeNum" class="btn-toggle active" onclick="setType('num')">1, 2, 3...</button>
+            <button id="typeNum" class="btn-toggle" onclick="setType('num')">1, 2, 3...</button>
             <button id="typeAlpha" class="btn-toggle" onclick="setType('alpha')">A, B, C...</button>
         </div>
 
         <label>色順序（ボタン名）</label>
-        <input type="text" id="statusNames" value="未,カメA,カメB,カメC,完了" style="width:100%; padding:8px; box-sizing: border-box;" placeholder="例：未,担当A,担当B,済">
+        <input type="text" id="statusNames" value="未,撮影済,要確認,不要" style="width:100%; padding:8px; box-sizing: border-box;">
         <small class="help-text">※各名前を「,」で区切ってください</small>
         
-        <button class="btn-update" onclick="setupGrid()">設定を保存・リセット</button>
+        <div class="btn-row">
+            <button class="btn-save" onclick="updateConfigOnly()">設定を保存(維持)</button>
+            <button class="btn-reset" onclick="resetAllData()">全リセット</button>
+        </div>
     </div>
 
     <div class="panel">
@@ -91,35 +100,65 @@
 </div>
 
 <script>
-    let state = { config: { classNum: 8, groupNum: 10, groupType: 'num', statusNames: "未,カメA,カメB,カメC,完了" }, data: {}, peerData: {} };
+    let pendingGroupType = 'num';
+    let state = { config: { classNum: 8, groupNum: 10, groupType: 'num', statusNames: "未,撮影済,要確認,不要" }, data: {}, peerData: {} };
 
     window.onload = () => {
-        const saved = localStorage.getItem('trip_photo_sync_v5');
+        const saved = localStorage.getItem('trip_photo_sync_v10');
         if (saved) {
             state = JSON.parse(saved);
             document.getElementById('classNum').value = state.config.classNum;
             document.getElementById('groupNum').value = state.config.groupNum;
             document.getElementById('statusNames').value = state.config.statusNames;
-            setType(state.config.groupType || 'num', false);
+            pendingGroupType = state.config.groupType || 'num';
+            updateToggleUI();
             renderGrid();
+        } else {
+            updateToggleUI();
         }
     };
 
-    function setType(type, shouldRender = true) {
-        state.config.groupType = type;
-        document.getElementById('typeNum').classList.toggle('active', type === 'num');
-        document.getElementById('typeAlpha').classList.toggle('active', type === 'alpha');
+    function setType(type) {
+        pendingGroupType = type;
+        updateToggleUI();
     }
 
-    function setupGrid() {
-        if(!confirm("設定を変更し、全チェックをリセットしますか？")) return;
+    // 見た目の制御を強化
+    function updateToggleUI() {
+        const btnNum = document.getElementById('typeNum');
+        const btnAlpha = document.getElementById('typeAlpha');
+        const currentType = state.config.groupType;
+
+        // 一旦リセット
+        [btnNum, btnAlpha].forEach(b => b.className = 'btn-toggle');
+
+        // 確定している方（active）
+        if (currentType === 'num') btnNum.classList.add('active');
+        if (currentType === 'alpha') btnAlpha.classList.add('active');
+
+        // 選択中だが未確定の方（pending）
+        if (pendingGroupType !== currentType) {
+            if (pendingGroupType === 'num') btnNum.className = 'btn-toggle pending';
+            if (pendingGroupType === 'alpha') btnAlpha.className = 'btn-toggle pending';
+        }
+    }
+
+    function updateConfigOnly() {
         state.config.classNum = parseInt(document.getElementById('classNum').value);
         state.config.groupNum = parseInt(document.getElementById('groupNum').value);
         state.config.statusNames = document.getElementById('statusNames').value;
-        state.data = {};
-        state.peerData = {};
+        state.config.groupType = pendingGroupType; // 確定
+        updateToggleUI();
         renderGrid();
         save();
+        alert("設定を保存しました。");
+    }
+
+    function resetAllData() {
+        if(!confirm("設定を変更し、全チェックをリセットしますか？")) return;
+        state.data = {};
+        state.peerData = {};
+        updateConfigOnly();
     }
 
     function renderGrid() {
@@ -127,7 +166,6 @@
         const filterOn = document.getElementById('filterUnshot').checked;
         const statusList = state.config.statusNames.split(',');
         container.innerHTML = '';
-
         let total = state.config.classNum * state.config.groupNum;
         let completed = 0;
 
@@ -137,30 +175,21 @@
             section.innerHTML = `<div class="class-header"><span>${c}組</span></div>`;
             const grid = document.createElement('div');
             grid.className = 'group-grid';
-
             let visibleInClass = 0;
             for (let g = 1; g <= state.config.groupNum; g++) {
                 const id = `c${c}g${g}`;
                 const myStatus = state.data[id] || 0;
                 const peerStatus = state.peerData[id] || 0;
-
                 if (myStatus > 0 || peerStatus > 0) completed++;
                 if (filterOn && (myStatus > 0 || peerStatus > 0)) continue;
-
                 visibleInClass++;
-                
-                // 表示ラベルの生成
-                let gLabel = (state.config.groupType === 'alpha') 
-                             ? String.fromCharCode(64 + g) 
-                             : g;
-
+                let gLabel = (state.config.groupType === 'alpha') ? String.fromCharCode(64 + g) : g;
                 const btn = document.createElement('div');
                 btn.className = `group-btn status-${myStatus} ${peerStatus > 0 ? 'synced' : ''}`;
                 btn.innerHTML = `<div class="num">${gLabel}</div><div class="label">${statusList[myStatus] || ''}</div>`;
                 btn.onclick = () => toggleStatus(id, statusList.length);
                 grid.appendChild(btn);
             }
-
             if (visibleInClass > 0 || !filterOn) {
                 section.appendChild(grid);
                 container.appendChild(section);
@@ -189,10 +218,10 @@
             save();
             alert("相方の進捗を読み込みました！");
             document.getElementById('syncData').value = "";
-        } catch (e) { alert("データエラーです"); }
+        } catch (e) { alert("エラー"); }
     }
 
-    function save() { localStorage.setItem('trip_photo_sync_v5', JSON.stringify(state)); }
+    function save() { localStorage.setItem('trip_photo_sync_v10', JSON.stringify(state)); }
 </script>
 </body>
 </html>
