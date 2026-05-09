@@ -21,6 +21,7 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             border: 2px solid #d1d1d6; box-sizing: border-box; position: relative;
         }
+        /* 同期された枠線の強調 */
         .group-btn.synced { border: 3px solid var(--sync-color) !important; box-shadow: 0 0 5px rgba(255,204,0,0.5); }
         
         .group-btn .num { font-size: 1.1em; font-weight: bold; }
@@ -54,18 +55,7 @@
 <div id="app" class="container"></div>
 
 <div class="container">
-    <!-- 同期パネル（現場で使う方を上へ） -->
-    <div class="panel">
-        <h3>🔗 進捗を同期する</h3>
-        <p>1. 自分の進捗を送る：【進捗をコピー】を押して相手に送信。<br>2. 相手の進捗を入れる：下の枠に貼り付けて【読み込む】。</p>
-        <textarea id="syncData" placeholder="ここにデータを貼り付け"></textarea>
-        <div class="btn-row">
-            <button class="btn-export" onclick="exportData()">進捗をコピー</button>
-            <button class="btn-import" onclick="importData()">読み込む</button>
-        </div>
-    </div>
-
-    <!-- 設定パネル（間違えて触らないよう一番下へ） -->
+    <!-- 🛠 基本設定（一人で使う時でも調整する可能性があるので上に配置） -->
     <div class="panel" style="background: #ddd;">
         <h3>🛠 基本設定</h3>
         <label>クラス数</label>
@@ -79,6 +69,17 @@
         <small class="help-text">※各名前を「,」（半角カンマ）で区切ってください</small>
         
         <button class="btn-update" onclick="setupGrid()">設定を保存・リセット</button>
+    </div>
+
+    <!-- 🔗 進捗を同期する（複数人時のみ使うので一番下へ） -->
+    <div class="panel">
+        <h3>🔗 進捗を同期する</h3>
+        <p>1. 自分の進捗を送る：【進捗をコピー】を押して相手に送信。<br>2. 相手の進捗を入れる：下の枠に貼り付けて【読み込む】。</p>
+        <textarea id="syncData" placeholder="ここにデータを貼り付け"></textarea>
+        <div class="btn-row">
+            <button class="btn-export" onclick="exportData()">進捗をコピー</button>
+            <button class="btn-import" onclick="importData()">読み込む</button>
+        </div>
     </div>
 </div>
 
